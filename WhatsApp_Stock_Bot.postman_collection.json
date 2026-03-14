@@ -1,0 +1,233 @@
+{
+	"info": {
+		"name": "WhatsApp Stock Bot API",
+		"description": "Complete API collection for WhatsApp Stock Market Bot.\n\nBase URL: http://localhost:8000",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Monitoring",
+			"item": [
+				{
+					"name": "Health Check (Full)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/health",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "health"]
+						},
+						"description": "Database, Redis, uptime sab ka status dikhata hai."
+					}
+				},
+				{
+					"name": "Liveness Probe",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/health/live",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "health", "live"]
+						},
+						"description": "App alive hai ya nahi — simple check."
+					}
+				},
+				{
+					"name": "Readiness Probe",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/health/ready",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "health", "ready"]
+						},
+						"description": "Database ready hai ya nahi."
+					}
+				},
+				{
+					"name": "Stats",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/stats",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "stats"]
+						},
+						"description": "Total announcements, sent/failed/pending counts dikhata hai."
+					}
+				}
+			]
+		},
+		{
+			"name": "Announcements",
+			"item": [
+				{
+					"name": "List All (Page 1)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/announcements?page=1&page_size=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "announcements"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "page_size", "value": "10" }
+							]
+						},
+						"description": "Paginated list of all announcements."
+					}
+				},
+				{
+					"name": "Filter by Source - BSE",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/announcements?source=BSE&page=1&page_size=5",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "announcements"],
+							"query": [
+								{ "key": "source", "value": "BSE" },
+								{ "key": "page", "value": "1" },
+								{ "key": "page_size", "value": "5" }
+							]
+						},
+						"description": "Only BSE announcements."
+					}
+				},
+				{
+					"name": "Filter by Source - NSE",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/announcements?source=NSE&page=1&page_size=5",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "announcements"],
+							"query": [
+								{ "key": "source", "value": "NSE" },
+								{ "key": "page", "value": "1" },
+								{ "key": "page_size", "value": "5" }
+							]
+						},
+						"description": "Only NSE announcements."
+					}
+				},
+				{
+					"name": "Filter by Status - FAILED",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/announcements?status=FAILED&page=1&page_size=5",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "announcements"],
+							"query": [
+								{ "key": "status", "value": "FAILED" },
+								{ "key": "page", "value": "1" },
+								{ "key": "page_size", "value": "5" }
+							]
+						},
+						"description": "Only failed deliveries."
+					}
+				},
+				{
+					"name": "Filter by Status - SENT",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/announcements?status=SENT&page=1&page_size=5",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "announcements"],
+							"query": [
+								{ "key": "status", "value": "SENT" },
+								{ "key": "page", "value": "1" },
+								{ "key": "page_size", "value": "5" }
+							]
+						},
+						"description": "Only successfully sent messages."
+					}
+				},
+				{
+					"name": "Filter by Status - PENDING",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/announcements?status=PENDING&page=1&page_size=5",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "announcements"],
+							"query": [
+								{ "key": "status", "value": "PENDING" },
+								{ "key": "page", "value": "1" },
+								{ "key": "page_size", "value": "5" }
+							]
+						},
+						"description": "Pending delivery messages."
+					}
+				},
+				{
+					"name": "Page 2 (Pagination)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/announcements?page=2&page_size=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "announcements"],
+							"query": [
+								{ "key": "page", "value": "2" },
+								{ "key": "page_size", "value": "10" }
+							]
+						},
+						"description": "Next page of announcements."
+					}
+				}
+			]
+		},
+		{
+			"name": "Admin Triggers",
+			"item": [
+				{
+					"name": "Trigger Fetch (NSE + BSE)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/trigger/fetch",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "trigger", "fetch"]
+						},
+						"description": "Manually trigger NSE/BSE announcement fetch.\nWait 10-15 sec, then check /stats or /announcements for new data."
+					}
+				},
+				{
+					"name": "Trigger Deliver (WhatsApp)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/trigger/deliver",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "trigger", "deliver"]
+						},
+						"description": "Manually trigger WhatsApp delivery of pending messages.\nRequires valid WhatsApp token in .env."
+					}
+				}
+			]
+		}
+	]
+}
