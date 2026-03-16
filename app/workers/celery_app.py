@@ -4,6 +4,11 @@ Celery application factory.
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
 from celery import Celery
 
 from app.config import get_settings
