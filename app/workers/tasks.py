@@ -86,7 +86,7 @@ async def _async_fetch_and_process(task) -> dict:
     all_announcements: list[AnnouncementCreate] = []
 
     try:
-        nse_data = await nse_svc.fetch_announcements(pages=2)
+        nse_data = await nse_svc.fetch_announcements(pages=4)
         all_announcements.extend(nse_data)
     except CircuitBreakerError:
         await alert_svc.alert_circuit_open("nse_api")
@@ -252,7 +252,7 @@ def direct_fetch_and_process() -> dict:
     asyncio.set_event_loop(loop)
     try:
         try:
-            nse_data = loop.run_until_complete(nse_svc.fetch_announcements(pages=2))
+            nse_data = loop.run_until_complete(nse_svc.fetch_announcements(pages=4))
             all_announcements.extend(nse_data)
         except Exception as exc:
             logger.error("nse_fetch_failed", error=str(exc)[:200])

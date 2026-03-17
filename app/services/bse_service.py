@@ -1,9 +1,3 @@
-"""
-BSE (Bombay Stock Exchange) announcement fetcher.
-
-BSE provides a more conventional JSON API that is less aggressive with bot blocking.
-"""
-
 from __future__ import annotations
 
 from typing import Optional

@@ -61,15 +61,32 @@ class Settings(BaseSettings):
 
     # ── Filtering ────────────────────────────────────────────────────────
     FILTER_KEYWORDS: List[str] = Field(default_factory=lambda: [
+        # Common corporate actions
         "dividend", "bonus", "split", "buyback", "merger", "acquisition",
         "rights issue", "ipo", "delisting", "board meeting", "agm",
         "quarterly results", "annual results", "financial results",
         "stock split", "restructuring", "insider trading", "shareholding",
         "credit rating", "debenture", "preferential allotment",
+        # NSE announcement subjects
+        "general updates", "updates", "outcome of board",
+        "trading window", "order", "contract", "appointment",
+        "resignation", "investor meet", "investor presentation",
+        "newspaper publication", "esop", "esos", "esps",
+        "offer for sale", "amalgamation", "disclosure",
+        "intimation", "regulation", "nclt", "letter of offer",
+        "fund raising", "allotment", "listing", "change in director",
+        "analyst", "press release", "corporate action",
     ])
     FILTER_CATEGORIES: List[str] = Field(default_factory=lambda: [
+        # BSE categories
         "Corp. Action", "Result", "Board Meeting", "AGM/EGM",
         "Insider Trading", "Company Update", "Shareholding",
+        # NSE industry categories (smIndustry field)
+        "Pharmaceuticals", "Finance", "Power", "Chemicals",
+        "Engineering", "Textiles", "Food", "Petrochemicals",
+        "Computers", "Software", "Banking", "Automobiles",
+        "Cement", "Steel", "Mining", "Telecom", "Infrastructure",
+        "Insurance", "Real Estate", "NBFC", "Media",
     ])
     SPAM_KEYWORDS: List[str] = Field(default_factory=lambda: [
         "duplicate", "test", "correction", "revised",

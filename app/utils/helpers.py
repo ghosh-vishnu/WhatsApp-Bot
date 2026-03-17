@@ -20,7 +20,7 @@ def parse_datetime(date_str: Optional[str], fmt: str = "%d-%b-%Y %H:%M:%S") -> O
     """Safely parse a date string; returns None on failure."""
     if not date_str:
         return None
-    for f in (fmt, "%Y-%m-%dT%H:%M:%S", "%d/%m/%Y %H:%M:%S", "%d-%m-%Y %H:%M:%S"):
+    for f in (fmt, "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S", "%d-%m-%Y %H:%M:%S"):
         try:
             dt = datetime.strptime(date_str.strip(), f)
             return dt.replace(tzinfo=timezone.utc)

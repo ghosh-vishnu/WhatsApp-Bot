@@ -1,113 +1,139 @@
 """
 NSE (National Stock Exchange) announcement fetcher.
 
-NSE aggressively blocks bots, so this service:
-  - Maintains a session with cookies from the homepage
-  - Uses rotating user-agents
-  - Respects rate limits
-  - Wraps calls in a circuit breaker
+Uses curl_cffi to impersonate real browser TLS fingerprints,
+which is required to bypass NSE's aggressive bot detection
+(Cloudflare + JA3/JA4 TLS fingerprinting).
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import asyncio
+import random
 from typing import Optional
 
-import httpx
+from curl_cffi.requests import AsyncSession
 
 from app.config import Settings
 from app.schemas.announcement_schema import AnnouncementCreate, SourceEnum
 from app.utils.circuit_breaker import CircuitBreaker
 from app.utils.helpers import async_retry, parse_datetime
 from app.utils.logger import get_logger
-from app.utils.security import get_rotating_headers, sanitize_text
+from app.utils.security import sanitize_text
 
 logger = get_logger(__name__)
+
+_BROWSERS = ["chrome120", "chrome119", "chrome116", "edge101", "safari15_5"]
+
+HOMEPAGE = "https://www.nseindia.com"
+API_BASE = "https://www.nseindia.com"
+ANNOUNCEMENTS_URL = f"{API_BASE}/api/corporate-announcements"
+
+_INDEX_SEGMENTS = ["equities", "sme", "debt", "mf"]
 
 
 class NSEService:
     """Fetches corporate announcements from NSE India."""
 
-    ANNOUNCEMENTS_ENDPOINT = "/api/corporate-announcements"
-    HOMEPAGE = "https://www.nseindia.com"
-
     def __init__(self, settings: Settings, circuit_breaker: CircuitBreaker) -> None:
         self._settings = settings
         self._cb = circuit_breaker
-        self._client: Optional[httpx.AsyncClient] = None
+        self._session: Optional[AsyncSession] = None
+        self._warmed = False
 
-    async def _get_client(self) -> httpx.AsyncClient:
-        """Create or reuse an HTTP client with NSE session cookies."""
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                base_url=self._settings.NSE_BASE_URL,
-                timeout=httpx.Timeout(self._settings.REQUEST_TIMEOUT),
-                follow_redirects=True,
-                http2=True,
+    async def _get_session(self) -> AsyncSession:
+        if self._session is None:
+            self._session = AsyncSession(
+                impersonate=random.choice(_BROWSERS),
+                timeout=self._settings.REQUEST_TIMEOUT,
+                allow_redirects=True,
             )
             await self._warm_session()
-        return self._client
+        return self._session
 
     async def _warm_session(self) -> None:
-        """Hit the NSE homepage to obtain session cookies before hitting APIs."""
+        """Hit NSE homepage to obtain session cookies before calling APIs."""
         try:
-            headers = get_rotating_headers()
-            headers["Referer"] = self.HOMEPAGE
-            resp = await self._client.get("/", headers=headers)  # type: ignore[union-attr]
-            resp.raise_for_status()
-            logger.info("nse_session_warmed", status=resp.status_code)
+            resp = await self._session.get(  # type: ignore[union-attr]
+                HOMEPAGE,
+                headers={
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Accept-Encoding": "gzip, deflate, br",
+                },
+            )
+            if resp.status_code == 200:
+                self._warmed = True
+                logger.info("nse_session_warmed", status=resp.status_code)
+            else:
+                logger.warning("nse_session_warm_unexpected", status=resp.status_code)
         except Exception as exc:
             logger.warning("nse_session_warm_failed", error=str(exc))
 
-    @async_retry(max_attempts=3, backoff_factor=2.0, exceptions=(httpx.HTTPError, Exception))
-    async def _fetch_page(self, index: int = 0, size: int = 50) -> list[dict]:
-        """Fetch a single page of announcements from NSE."""
+    @async_retry(max_attempts=3, backoff_factor=2.0, exceptions=(Exception,))
+    async def _fetch_segment(self, segment: str = "equities") -> list[dict]:
+        """Fetch announcements for one NSE index segment (equities, sme, etc.)."""
 
         async def _do_fetch() -> list[dict]:
-            client = await self._get_client()
-            headers = get_rotating_headers()
-            headers["Referer"] = f"{self.HOMEPAGE}/companies-listing/corporate-filings-announcements"
+            session = await self._get_session()
 
-            params = {"index": str(index), "fo_sec": "", "from_date": "", "to_date": ""}
-            resp = await client.get(
-                self.ANNOUNCEMENTS_ENDPOINT,
+            if not self._warmed:
+                await self._warm_session()
+                await asyncio.sleep(random.uniform(0.5, 1.5))
+
+            headers = {
+                "Accept": "application/json, text/javascript, */*; q=0.01",
+                "Accept-Language": "en-US,en;q=0.9",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Referer": f"{HOMEPAGE}/companies-listing/corporate-filings-announcements",
+                "X-Requested-With": "XMLHttpRequest",
+            }
+
+            resp = await session.get(
+                ANNOUNCEMENTS_URL,
                 headers=headers,
-                params=params,
+                params={"index": segment},
             )
             resp.raise_for_status()
             data = resp.json()
-            return data if isinstance(data, list) else []
+
+            if isinstance(data, list):
+                return data
+            if isinstance(data, dict):
+                inner = data.get("data")
+                return inner if isinstance(inner, list) else []
+            return []
 
         return await self._cb.call(_do_fetch)
 
     async def fetch_announcements(self, pages: int = 2) -> list[AnnouncementCreate]:
-        """Fetch latest announcements from NSE across multiple pages."""
+        """Fetch latest announcements from NSE across index segments."""
         all_announcements: list[AnnouncementCreate] = []
+        segments = _INDEX_SEGMENTS[:pages]
 
-        for page_idx in range(pages):
+        for segment in segments:
             try:
-                raw = await self._fetch_page(index=page_idx * 50)
+                raw = await self._fetch_segment(segment=segment)
                 parsed = [self._parse(item) for item in raw if item]
                 all_announcements.extend([a for a in parsed if a is not None])
                 logger.info(
-                    "nse_page_fetched",
-                    page=page_idx,
+                    "nse_segment_fetched",
+                    segment=segment,
                     count=len(raw),
                     parsed=len(parsed),
                 )
+                await asyncio.sleep(random.uniform(1.0, 2.5))
             except Exception as exc:
-                logger.error("nse_page_fetch_error", page=page_idx, error=str(exc))
-                break
+                logger.error("nse_segment_fetch_error", segment=segment, error=str(exc))
 
         logger.info("nse_fetch_complete", total=len(all_announcements))
         return all_announcements
 
     def _parse(self, item: dict) -> Optional[AnnouncementCreate]:
         try:
-            company = sanitize_text(item.get("an_dt", "") or item.get("attchmntFile", "") or "")
             symbol = item.get("symbol", "") or ""
             subject = sanitize_text(item.get("desc", "") or "")
-            company_name = sanitize_text(item.get("sm_name", "") or company)
+            company_name = sanitize_text(item.get("sm_name", "") or "")
 
             if not company_name or not subject:
                 return None
@@ -119,7 +145,10 @@ class NSEService:
 
             attachment_url = None
             if attachment:
-                attachment_url = f"{self._settings.NSE_BASE_URL}/corporate/content/{attachment}"
+                if attachment.startswith("http"):
+                    attachment_url = attachment
+                else:
+                    attachment_url = f"{API_BASE}/corporate/content/{attachment}"
 
             return AnnouncementCreate(
                 source=SourceEnum.NSE,
@@ -137,6 +166,7 @@ class NSEService:
             return None
 
     async def close(self) -> None:
-        if self._client and not self._client.is_closed:
-            await self._client.aclose()
-            self._client = None
+        if self._session:
+            await self._session.close()
+            self._session = None
+            self._warmed = False

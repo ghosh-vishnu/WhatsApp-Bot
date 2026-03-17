@@ -25,6 +25,7 @@ from fastapi.responses import JSONResponse
 from app.api.health import router as health_router
 from app.config import get_settings
 from app.utils.logger import get_logger, setup_logging
+from app.workers.celery_app import celery_app as _celery_app  # noqa: F401 — registers app as Celery default
 from app.workers.scheduler import create_scheduler
 from infra.database import close_db, init_db
 from infra.redis import close_redis

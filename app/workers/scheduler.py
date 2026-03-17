@@ -1,10 +1,3 @@
-"""
-APScheduler-based scheduler.
-
-In production (with Redis + Celery running): dispatches tasks via Celery.
-In development (no Redis): runs sync pipeline functions directly in-process.
-"""
-
 from __future__ import annotations
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -14,6 +7,10 @@ from app.config import get_settings
 from app.utils.logger import get_logger, setup_logging
 
 logger = get_logger(__name__)
+
+_TASK_FETCH = "app.workers.tasks.fetch_and_process_announcements"
+_TASK_DELIVER = "app.workers.tasks.deliver_pending_messages"
+_TASK_RETRY = "app.workers.tasks.retry_failed_messages"
 
 
 def _is_celery_available() -> bool:
@@ -51,11 +48,15 @@ def _should_use_celery() -> bool:
     return _use_celery
 
 
+def _get_celery_app():
+    from app.workers.celery_app import celery_app
+    return celery_app
+
+
 def _dispatch_fetch() -> None:
     if _should_use_celery():
-        from app.workers.tasks import fetch_and_process_announcements
         logger.info("scheduler_dispatching", task="fetch", mode="celery")
-        fetch_and_process_announcements.delay()
+        _get_celery_app().send_task(_TASK_FETCH, queue="fetch")
     else:
         from app.workers.tasks import direct_fetch_and_process
         logger.info("scheduler_dispatching", task="fetch", mode="direct")
@@ -68,9 +69,8 @@ def _dispatch_fetch() -> None:
 
 def _dispatch_deliver() -> None:
     if _should_use_celery():
-        from app.workers.tasks import deliver_pending_messages
         logger.info("scheduler_dispatching", task="deliver", mode="celery")
-        deliver_pending_messages.delay()
+        _get_celery_app().send_task(_TASK_DELIVER, queue="deliver")
     else:
         from app.workers.tasks import direct_deliver_pending
         logger.info("scheduler_dispatching", task="deliver", mode="direct")
@@ -83,9 +83,8 @@ def _dispatch_deliver() -> None:
 
 def _dispatch_retry() -> None:
     if _should_use_celery():
-        from app.workers.tasks import retry_failed_messages
         logger.info("scheduler_dispatching", task="retry", mode="celery")
-        retry_failed_messages.delay()
+        _get_celery_app().send_task(_TASK_RETRY, queue="deliver")
     else:
         from app.workers.tasks import direct_retry_failed
         logger.info("scheduler_dispatching", task="retry", mode="direct")
