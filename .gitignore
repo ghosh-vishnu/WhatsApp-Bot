@@ -30,8 +30,7 @@ htmlcov/
 coverage.xml
 
 # Celery
-celerybeat-schedule
-celerybeat-schedule.db
+celerybeat-schedule*
 
 # OS
 .DS_Store

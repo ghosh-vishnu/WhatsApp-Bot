@@ -7,6 +7,7 @@ Automated backend service that fetches corporate announcements from **NSE** and 
 ```
 ┌─────────────┐    ┌─────────────┐
 │   NSE API   │    │   BSE API   │
+│ (curl_cffi) │    │   (httpx)   │
 └──────┬──────┘    └──────┬──────┘
        │   Circuit Breaker     │
        └──────────┬───────────┘
@@ -30,16 +31,16 @@ Automated backend service that fetches corporate announcements from **NSE** and 
 
 ## Tech Stack
 
-| Layer       | Technology                     |
-| ----------- | ------------------------------ |
-| Framework   | FastAPI                        |
-| Database    | PostgreSQL 16 + SQLAlchemy 2.0 |
-| Cache       | Redis 7                        |
-| Task Queue  | Celery 5 + Redis broker        |
-| Scheduler   | APScheduler / Celery Beat      |
-| HTTP Client | httpx (HTTP/2)                 |
-| Messaging   | Meta WhatsApp Cloud API        |
-| Logging     | structlog (JSON)               |
+| Layer       | Technology                                  |
+| ----------- | ------------------------------------------- |
+| Framework   | FastAPI                                     |
+| Database    | PostgreSQL 16 + SQLAlchemy 2.0              |
+| Cache       | Redis 7                                     |
+| Task Queue  | Celery 5 + Redis broker                     |
+| Scheduler   | APScheduler / Celery Beat                   |
+| HTTP Client | httpx (BSE) + curl_cffi (NSE, TLS spoofing) |
+| Messaging   | Meta WhatsApp Cloud API                     |
+| Logging     | structlog (JSON)                            |
 
 ## Project Structure
 
@@ -89,6 +90,8 @@ celery -A app.workers.celery_app:celery_app worker --queues=fetch,deliver --logl
 celery -A app.workers.celery_app:celery_app beat --loglevel=info
 ```
 
+> **Windows note:** The Celery worker automatically uses the `solo` pool on Windows (configured in `celery_app.py`). No extra flags needed.
+
 ## Configuration
 
 Create a `.env` file in the project root. All settings are defined in `app/config.py`.
@@ -105,15 +108,15 @@ Create a `.env` file in the project root. All settings are defined in `app/confi
 
 ### Optional Variables
 
-| Variable                 | Default                      | Description                  |
-| ------------------------ | ---------------------------- | ---------------------------- |
-| `APP_ENV`                | `production`                 | `development` / `production` |
-| `LOG_LEVEL`              | `INFO`                       | Logging verbosity            |
-| `REDIS_URL`              | `redis://localhost:6379/0`   | Redis connection             |
-| `CELERY_BROKER_URL`      | `redis://localhost:6379/1`   | Celery broker                |
-| `FETCH_INTERVAL_SECONDS` | `300`                        | Fetch cycle (seconds)        |
-| `WHATSAPP_RATE_LIMIT`    | `80`                         | Max messages per window      |
-| `ALERT_WEBHOOK_URL`      | —                            | Slack/Discord webhook        |
+| Variable                 | Default                    | Description                  |
+| ------------------------ | -------------------------- | ---------------------------- |
+| `APP_ENV`                | `production`               | `development` / `production` |
+| `LOG_LEVEL`              | `INFO`                     | Logging verbosity            |
+| `REDIS_URL`              | `redis://localhost:6379/0` | Redis connection             |
+| `CELERY_BROKER_URL`      | `redis://localhost:6379/1` | Celery broker                |
+| `FETCH_INTERVAL_SECONDS` | `60`                       | Fetch cycle (seconds)        |
+| `WHATSAPP_RATE_LIMIT`    | `80`                       | Max messages per window      |
+| `ALERT_WEBHOOK_URL`      | —                          | Slack/Discord webhook        |
 
 ## API Endpoints
 
@@ -127,6 +130,15 @@ Create a `.env` file in the project root. All settings are defined in `app/confi
 | POST   | `/api/v1/trigger/fetch`   | Manual fetch trigger    |
 | POST   | `/api/v1/trigger/deliver` | Manual delivery trigger |
 
+## Data Sources
+
+| Exchange | API Endpoint                                        | Method     | Items per cycle |
+| -------- | --------------------------------------------------- | ---------- | --------------- |
+| BSE      | `api.bseindia.com/BseIndiaAPI/api/AnnSubCategoryGetData/w` | httpx      | ~100 (2 pages)  |
+| NSE      | `nseindia.com/api/corporate-announcements`          | curl_cffi  | ~80 (4 segments: equities, sme, debt, mf) |
+
+NSE requires browser TLS fingerprint impersonation (via `curl_cffi`) to bypass Cloudflare bot detection. Session cookies are obtained by warming the homepage before API calls.
+
 ## Testing
 
 ```bash
@@ -139,11 +151,13 @@ pytest tests/ -v --cov=app --cov-report=html
 
 ## Key Features
 
+- **Dual exchange support** — NSE + BSE corporate announcements fetched every 60 seconds
+- **TLS fingerprint impersonation** — `curl_cffi` spoofs real browser (Chrome/Edge/Safari) to bypass NSE's Cloudflare
 - **Circuit breaker** on NSE/BSE APIs to prevent cascading failures
-- **Anti-bot evasion** — session cookie warming, rotating user-agents
 - **Sliding-window rate limiter** (Redis-backed) for WhatsApp API
 - **Dual-layer deduplication** — Redis cache + PostgreSQL unique constraint
 - **Separate Celery queues** — `fetch` and `deliver` workers scale independently
+- **Windows compatible** — auto-detects OS and uses `solo` pool on Windows
 - **Structured JSON logging** — ready for ELK / Datadog / CloudWatch
 - **Alerting** — Slack/Discord webhooks + email on failures
 - **Automatic retries** with exponential backoff on all external calls

@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_db, get_redis
+from app.dependencies import get_db, get_redis, require_api_key
 from app.repositories.announcement_repo import AnnouncementRepository
 from app.schemas.announcement_schema import (
     AnnouncementListResponse,
@@ -53,7 +53,7 @@ def _check_db() -> str:
         return "healthy"
     except Exception as exc:
         logger.error("health_db_failed", error=str(exc)[:200])
-        return f"unhealthy: {str(exc)[:100]}"
+        return "unhealthy"
 
 
 async def _check_redis() -> str:
@@ -65,7 +65,7 @@ async def _check_redis() -> str:
         return "healthy" if result else "unhealthy"
     except Exception as exc:
         logger.error("health_redis_failed", error=str(exc)[:200])
-        return f"unhealthy: {str(exc)[:100]}"
+        return "unhealthy"
 
 
 @router.get("/health/ready", tags=["monitoring"])
@@ -81,7 +81,7 @@ async def liveness_check() -> dict:
     return {"alive": True}
 
 
-@router.get("/stats", tags=["monitoring"])
+@router.get("/stats", tags=["monitoring"], dependencies=[Depends(require_api_key)])
 async def get_stats(db: AsyncSession = Depends(get_db)) -> dict:
     """Return announcement processing statistics."""
     repo = AnnouncementRepository(db)
@@ -109,14 +109,16 @@ async def list_announcements(
     )
 
 
-@router.post("/trigger/fetch", response_model=TaskStatusResponse, tags=["admin"])
+@router.post("/trigger/fetch", response_model=TaskStatusResponse, tags=["admin"], dependencies=[Depends(require_api_key)])
 async def trigger_fetch() -> TaskStatusResponse:
     """Manually trigger announcement fetch pipeline."""
     from app.workers.scheduler import _should_use_celery
 
     if _should_use_celery():
-        from app.workers.tasks import fetch_and_process_announcements
-        result = fetch_and_process_announcements.delay()
+        from app.workers.celery_app import celery_app
+        result = celery_app.send_task(
+            "app.workers.tasks.fetch_and_process_announcements", queue="fetch",
+        )
         logger.info("manual_fetch_triggered", task_id=result.id)
         return TaskStatusResponse(task_id=result.id, status="queued")
     else:
@@ -127,14 +129,16 @@ async def trigger_fetch() -> TaskStatusResponse:
         return TaskStatusResponse(task_id="direct", status="running")
 
 
-@router.post("/trigger/deliver", response_model=TaskStatusResponse, tags=["admin"])
+@router.post("/trigger/deliver", response_model=TaskStatusResponse, tags=["admin"], dependencies=[Depends(require_api_key)])
 async def trigger_deliver() -> TaskStatusResponse:
     """Manually trigger message delivery."""
     from app.workers.scheduler import _should_use_celery
 
     if _should_use_celery():
-        from app.workers.tasks import deliver_pending_messages
-        result = deliver_pending_messages.delay()
+        from app.workers.celery_app import celery_app
+        result = celery_app.send_task(
+            "app.workers.tasks.deliver_pending_messages", queue="deliver",
+        )
         logger.info("manual_deliver_triggered", task_id=result.id)
         return TaskStatusResponse(task_id=result.id, status="queued")
     else:

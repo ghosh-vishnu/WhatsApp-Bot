@@ -4,8 +4,10 @@ FastAPI dependency injection providers.
 
 from __future__ import annotations
 
+import hmac
 from typing import AsyncGenerator
 
+from fastapi import Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -29,3 +31,11 @@ async def get_redis():
 
 def get_config():
     return get_settings()
+
+
+async def require_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> str:
+    """Protect admin endpoints with the app SECRET_KEY."""
+    settings = get_settings()
+    if not hmac.compare_digest(x_api_key, settings.SECRET_KEY):
+        raise HTTPException(status_code=403, detail="Invalid API key")
+    return x_api_key

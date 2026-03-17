@@ -58,7 +58,11 @@ def setup_logging(log_level: str = "INFO", json_output: bool = True) -> None:
     root.addHandler(handler)
     root.setLevel(getattr(logging, log_level.upper(), logging.INFO))
 
-    for noisy in ("httpx", "httpcore", "urllib3", "asyncio", "sqlalchemy.engine"):
+    for noisy in (
+        "httpx", "httpcore", "urllib3", "asyncio",
+        "sqlalchemy.engine",
+        "apscheduler.scheduler", "apscheduler.executors",
+    ):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
     _configured = True
