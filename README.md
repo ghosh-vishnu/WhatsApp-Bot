@@ -111,10 +111,11 @@ uvicorn app.main:app --reload --port 8000
 celery -A app.workers.celery_app:celery_app worker --queues=fetch,deliver --loglevel=info
 
 # 5. Start Celery Beat scheduler (separate terminal)
-celery -A app.workers.celery_app:celery_app beat --loglevel=info
+# Windows: add -s "$env:TEMP\celerybeat-schedule" to avoid permission errors
+celery -A app.workers.celery_app:celery_app beat --loglevel=info -s "$env:TEMP\celerybeat-schedule"
 ```
 
-> **Windows note:** The Celery worker automatically uses the `solo` pool on Windows (configured in `celery_app.py`). No extra flags needed.
+> **Windows note:** The Celery worker uses the `solo` pool automatically. For Celery Beat on Windows, add `-s "$env:TEMP\celerybeat-schedule"` so the schedule file is written to Temp (avoids permission denied).
 
 ## Configuration
 
@@ -185,6 +186,27 @@ pytest tests/ -v --cov=app --cov-report=html
 - **Structured JSON logging** — ready for ELK / Datadog / CloudWatch
 - **Alerting** — Slack/Discord webhooks + email on failures
 - **Automatic retries** with exponential backoff on all external calls
+
+## Troubleshooting
+
+### New data stopped appearing in the database
+
+1. **Celery Beat crash** — If `wsbot-celery-beat` shows `Restarting`, it was likely failing due to `Permission denied: celerybeat-schedule`. The fix uses `/tmp` for the schedule file. Redeploy:
+   ```bash
+   docker compose up -d celery-beat
+   ```
+
+2. **Manual fetch** — To force an immediate fetch and verify the pipeline:
+   ```bash
+   curl -X POST "http://your-api/api/v1/trigger/fetch" -H "X-API-Key: YOUR_SECRET_KEY"
+   ```
+
+3. **Check Celery worker logs** — NSE/BSE or WhatsApp errors will appear here:
+   ```bash
+   docker logs wsbot-celery-worker --tail 100
+   ```
+
+4. **Circuit breaker** — After 5 consecutive NSE or BSE failures, the circuit opens and no fetches run for 60 seconds. Check logs for `nse_circuit_open` or `bse_circuit_open`.
 
 ## License
 

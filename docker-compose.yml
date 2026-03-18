@@ -81,7 +81,7 @@ services:
     image: whatsapp-stock-bot:latest
     container_name: wsbot-celery-beat
     restart: unless-stopped
-    command: celery -A app.workers.celery_app:celery_app beat --loglevel=info
+    command: celery -A app.workers.celery_app:celery_app beat --loglevel=info -s /tmp/celerybeat-schedule
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-wsbot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-wsbot}
