@@ -1,0 +1,46 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.venv
+venv
+env
+.pytest_cache
+htmlcov
+.coverage
+coverage.xml
+
+# Environment (never bake into image)
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Celery (ephemeral)
+celerybeat-schedule*
+
+# Logs
+*.log
+logs
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docs / misc
+README.md
+*.md
+WhatsApp_Stock_Bot.postman_collection.json
+
+# Tests (optional: include for image flexibility)
+tests

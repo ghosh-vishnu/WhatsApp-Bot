@@ -72,7 +72,31 @@ tests/                 # Unit tests
 - PostgreSQL 16
 - Redis 7
 
-### Install and Run
+### Option A: Docker (Production / VPS)
+
+```bash
+# 1. Copy environment template and fill in your values
+cp .env.example .env
+# Edit .env with SECRET_KEY, POSTGRES_PASSWORD, WHATSAPP_*, etc.
+
+# 2. Build and run
+docker compose build
+docker compose up -d
+
+# Optional: Celery Flower monitoring
+docker compose --profile flower up -d
+```
+
+Access the API at `http://localhost:8000`. Use `X-API-Key: <SECRET_KEY>` for protected endpoints.
+
+### VPS Deployment
+
+1. Copy the project to your VPS (e.g. via `git clone` or `scp`).
+2. Create `.env` from `.env.example` and set all required secrets.
+3. Run `docker compose up -d` (ensures PostgreSQL, Redis, API, Celery worker, and beat start with health checks).
+4. Put a reverse proxy (Nginx/Caddy) in front of the API for TLS and optional rate limiting.
+
+### Option B: Local Development
 
 ```bash
 # 1. Install dependencies
