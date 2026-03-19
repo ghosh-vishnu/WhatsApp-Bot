@@ -1,7 +1,3 @@
-"""
-Health check and monitoring endpoints.
-"""
-
 from __future__ import annotations
 
 import time
@@ -46,7 +42,6 @@ async def health_check() -> HealthResponse:
 
 
 def _check_db() -> str:
-    """Use sync connection for reliable DB health check."""
     try:
         with sync_session_factory() as session:
             session.execute(text("SELECT 1"))
@@ -57,7 +52,6 @@ def _check_db() -> str:
 
 
 async def _check_redis() -> str:
-    """Check Redis (returns healthy for FakeRedis stub too)."""
     try:
         from infra.redis import get_redis_pool
         pool = get_redis_pool()
