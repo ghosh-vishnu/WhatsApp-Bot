@@ -104,7 +104,9 @@ def get_redis_pool() -> Any:
             socket_timeout=5,
             retry_on_timeout=True,
         )
-        logger.info("redis_connected", url=_settings.REDIS_URL.split("@")[-1])
+        # Log host only (never credentials)
+        _safe_url = _settings.REDIS_URL.split("@")[-1].split("?")[0] if "@" in _settings.REDIS_URL else "redis"
+        logger.info("redis_connected", host=_safe_url[:50])
     else:
         _pool = _FakeRedis()
         logger.warning("redis_not_available", detail="Using in-memory stub. Install and start Redis for full functionality.")

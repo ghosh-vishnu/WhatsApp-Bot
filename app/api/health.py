@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import threading
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -82,6 +82,10 @@ async def get_stats(db: AsyncSession = Depends(get_db)) -> dict:
     return await repo.get_stats()
 
 
+_VALID_SOURCES = frozenset({"NSE", "BSE"})
+_VALID_STATUSES = frozenset({"PENDING", "SENT", "FAILED", "SKIPPED"})
+
+
 @router.get("/announcements", response_model=AnnouncementListResponse, tags=["announcements"])
 async def list_announcements(
     page: int = Query(default=1, ge=1),
@@ -91,9 +95,16 @@ async def list_announcements(
     db: AsyncSession = Depends(get_db),
 ) -> AnnouncementListResponse:
     """List announcements with pagination and optional filters."""
+    if source is not None and source.upper() not in _VALID_SOURCES:
+        raise HTTPException(status_code=400, detail="Invalid source. Use NSE or BSE")
+    if status is not None and status.upper() not in _VALID_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid status. Use PENDING, SENT, FAILED, or SKIPPED")
     repo = AnnouncementRepository(db)
     items, total = await repo.list_announcements(
-        page=page, page_size=page_size, source=source, status=status,
+        page=page,
+        page_size=page_size,
+        source=source.upper() if source else None,
+        status=status.upper() if status else None,
     )
     return AnnouncementListResponse(
         items=[AnnouncementResponse.model_validate(i) for i in items],

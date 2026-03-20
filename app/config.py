@@ -92,6 +92,13 @@ class Settings(BaseSettings):
         "duplicate", "test", "correction", "revised",
     ])
 
+    # ── LLM (OpenAI) for summary enrichment ─────────────────────────────
+    LLM_ENABLED: bool = False
+    OPENAI_API_KEY: str = ""
+    LLM_MODEL: str = "gpt-4o-mini"
+    LLM_TIMEOUT: int = 15
+    LLM_MAX_RETRIES: int = 2
+
     # ── Alerting ─────────────────────────────────────────────────────────
     ALERT_WEBHOOK_URL: str = ""
     ALERT_EMAIL_TO: str = ""
@@ -114,6 +121,11 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
         "case_sensitive": True,
     }
+
+    def model_post_init(self, __context) -> None:
+        """Ensure DEBUG is off in production."""
+        if self.APP_ENV == "production" and self.DEBUG:
+            raise ValueError("DEBUG must be False when APP_ENV=production")
 
 
 @lru_cache(maxsize=1)

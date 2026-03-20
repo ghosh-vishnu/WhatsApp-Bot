@@ -137,7 +137,7 @@ async def _async_fetch_and_process(task) -> dict:
             if h in existing_hashes:
                 continue
 
-            summary = summary_svc.generate_summary(ann)
+            summary = await summary_svc.generate_summary_async(ann)
             db_ann = Announcement(
                 content_hash=h,
                 source=AnnouncementSource(ann.source.value),

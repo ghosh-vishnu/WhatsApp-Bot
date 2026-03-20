@@ -33,9 +33,11 @@ def get_config():
     return get_settings()
 
 
-async def require_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> str:
-    """Protect admin endpoints with the app SECRET_KEY."""
+async def require_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Key")) -> str:
+    """Protect admin endpoints with the app SECRET_KEY. Returns 401 for missing/invalid key."""
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="Missing X-API-Key header")
     settings = get_settings()
     if not hmac.compare_digest(x_api_key, settings.SECRET_KEY):
-        raise HTTPException(status_code=403, detail="Invalid API key")
+        raise HTTPException(status_code=401, detail="Invalid API key")
     return x_api_key

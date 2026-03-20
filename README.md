@@ -141,6 +141,9 @@ Create a `.env` file in the project root. All settings are defined in `app/confi
 | `CELERY_BROKER_URL`      | `redis://localhost:6379/1` | Celery broker                |
 | `FETCH_INTERVAL_SECONDS` | `60`                       | Fetch cycle (seconds)        |
 | `WHATSAPP_RATE_LIMIT`    | `80`                       | Max messages per window      |
+| `LLM_ENABLED`            | `false`                    | Use OpenAI for SUMMARY/IMPACT |
+| `OPENAI_API_KEY`         | —                          | OpenAI API key (when LLM enabled) |
+| `LLM_MODEL`              | `gpt-4o-mini`              | OpenAI model                 |
 | `ALERT_WEBHOOK_URL`      | —                          | Slack/Discord webhook        |
 
 ## API Endpoints
@@ -173,6 +176,10 @@ pytest tests/ -v
 # Run with coverage
 pytest tests/ -v --cov=app --cov-report=html
 ```
+
+## LLM Summary (Optional)
+
+Set `LLM_ENABLED=true` and `OPENAI_API_KEY=sk-...` to use OpenAI for richer SUMMARY, IMPACT, STRENGTH, and MARKET VIEW. Falls back to rule-based logic if the API fails or is disabled. Uses `gpt-4o-mini` by default (~$0.15/1M input tokens).
 
 ## Key Features
 
